@@ -39,10 +39,31 @@ jobs:
       - name: Grant Execute Permission to Gradlew
         run: chmod +x gradlew
 
+      - name: Configure release signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$STORE_PASSWORD" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Release signing secrets are missing. Configure KEYSTORE_BASE64, STORE_PASSWORD, and KEY_PASSWORD in repository Actions secrets."
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$GITHUB_WORKSPACE/my-upload-key.jks"
+          test -s "$GITHUB_WORKSPACE/my-upload-key.jks"
+
       - name: Run Tests
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew testDebugUnitTest --no-daemon
 
       - name: Build Release APK
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Locate & Compute SHA-256 Checksum
@@ -62,14 +83,14 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef299c7d8760 # v2.0.8
         with:
-          tag_name: ${{ github.ref_name || inputs.version_tag }}
-          name: Pico AI ${{ github.ref_name || inputs.version_tag }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.version_tag || github.ref_name }}
+          name: Pico AI ${{ github.event_name == 'workflow_dispatch' && inputs.version_tag || github.ref_name }}
           draft: false
           prerelease: false
           files: |
             pico-ai-release.apk
           body: |
-            ## Pico AI ${{ github.ref_name || inputs.version_tag }}
+            ## Pico AI ${{ github.event_name == 'workflow_dispatch' && inputs.version_tag || github.ref_name }}
             
             A complete, free, native on-device Android AI assistant.
             
