@@ -32,12 +32,6 @@ android {
       keyAlias = "upload"
       keyPassword = System.getenv("KEY_PASSWORD")
     }
-    create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
-      storePassword = "android"
-      keyAlias = "androiddebugkey"
-      keyPassword = "android"
-    }
   }
 
   buildTypes {
@@ -49,11 +43,7 @@ android {
       // AI Studio.
       signingConfig = signingConfigs.getByName("release")
     }
-    debug {
-      // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
-      // AI Studio.
-      signingConfig = signingConfigs.getByName("debugConfig")
-    }
+    // Let Android Gradle Plugin create/use its standard local debug keystore.
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
