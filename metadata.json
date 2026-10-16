@@ -1,0 +1,6 @@
+{
+  "name": "Pico AI",
+  "description": "A completely free, private, native on-device Android AI assistant with local LLM inference, conversation history, and model management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

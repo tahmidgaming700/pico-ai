@@ -1,0 +1,84 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Version Tag (e.g. v0.1.0)'
+        required: true
+        default: 'v0.1.0'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Package Pico AI Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Grant Execute Permission to Gradlew
+        run: chmod +x gradlew
+
+      - name: Run Tests
+        run: ./gradlew testDebugUnitTest --no-daemon
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Locate & Compute SHA-256 Checksum
+        id: checksum
+        run: |
+          APK_FILE=$(find app/build/outputs/apk/release/ -name "*.apk" | head -n 1)
+          if [ -z "$APK_FILE" ]; then
+            echo "ERROR: Release APK not found!"
+            exit 1
+          fi
+          echo "Found APK: $APK_FILE"
+          cp "$APK_FILE" pico-ai-release.apk
+          SHA256=$(sha256sum pico-ai-release.apk | awk '{print $1}')
+          echo "SHA256: $SHA256"
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef299c7d8760 # v2.0.8
+        with:
+          tag_name: ${{ github.ref_name || inputs.version_tag }}
+          name: Pico AI ${{ github.ref_name || inputs.version_tag }}
+          draft: false
+          prerelease: false
+          files: |
+            pico-ai-release.apk
+          body: |
+            ## Pico AI ${{ github.ref_name || inputs.version_tag }}
+            
+            A complete, free, native on-device Android AI assistant.
+            
+            ### Highlights
+            - **100% On-Device AI**: Zero remote API keys, zero paid subscriptions, zero cloud telemetry.
+            - **Privacy First**: Complete conversation history kept locally in SQLite (Room).
+            - **Model Manager**: Integrated download and verification for lightweight instruction models (Gemma 3 1B, SmolLM 135M, Gemma 2B, Phi-2) with header integrity checks.
+            - **Tested Platform**: Designed with explicit considerations for Android 7.0+ (API 24) and devices like Huawei Y9 2019 (Kirin 710, 3GB RAM).
+            
+            ### Artifact Integrity
+            - **File**: `pico-ai-release.apk`
+            - **SHA-256 Checksum**: `${{ steps.checksum.outputs.sha256 }}`
