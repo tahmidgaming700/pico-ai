@@ -117,6 +117,18 @@
 
 ---
 
+## 🔐 Release signing setup
+
+The release workflow requires these repository Actions secrets before a signed release can be built:
+
+- `KEYSTORE_BASE64`: the Base64-encoded contents of the release keystore file.
+- `STORE_PASSWORD`: the keystore password.
+- `KEY_PASSWORD`: the password for the `upload` key alias.
+
+The Gradle release configuration currently uses the key alias `upload`. Keep the same keystore and signing key for future releases so users can install updates over earlier versions. Never commit the keystore or passwords to the repository.
+
+To encode a keystore locally, use `base64 -w 0 my-upload-key.jks` on Linux, then save the output as the `KEYSTORE_BASE64` secret. On systems where `-w 0` is unsupported, use the equivalent command for a single-line Base64 value.
+
 ## 🚀 GitHub Actions CI / CD
 
 The repository includes pre-configured continuous integration workflows in `.github/workflows/`:
