@@ -84,7 +84,7 @@ jobs:
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef299c7d8760 # v2.0.8
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.version_tag || github.ref_name }}
           name: Pico AI ${{ github.event_name == 'workflow_dispatch' && inputs.version_tag || github.ref_name }}
