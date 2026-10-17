@@ -51,14 +51,32 @@
 
 ## 🧠 Model Catalogue & Licensing
 
-| Model | Publisher | Parameters | Approx Size | Recommended RAM | License | Format |
-|---|---|---|---|---|---|---|
-| **SmolLM 135M Instruct** | Hugging Face TB | 135M | ~98 MB | 1024 MB | [Apache-2.0](https://huggingface.co/HuggingFaceTB/SmolLM-135M-Instruct) | MediaPipe Task / LiteRT Binary |
-| **Gemma 3 1B Instruct** | Google DeepMind | 1B | ~840 MB | 2048 MB | [Gemma Terms of Use](https://ai.google.dev/gemma/terms) | MediaPipe Task / LiteRT Binary |
-| **Gemma 2B Instruct** | Google DeepMind | 2B | ~1.35 GB | 3072 MB | [Gemma Terms of Use](https://ai.google.dev/gemma/terms) | MediaPipe Task / LiteRT Binary |
-| **Phi-2 Instruct** | Microsoft | 2.7B | ~1.65 GB | 4096 MB | [MIT](https://huggingface.co/microsoft/phi-2) | MediaPipe Task / LiteRT Binary |
+| Model | Publisher | Parameters | Approx Size | Recommended RAM | License | Format | Access Status |
+|---|---|---|---|---|---|---|---|
+| **SmolLM 135M Instruct** | Hugging Face TB | 135M | ~166 MB | 1024 MB | [Apache-2.0](https://huggingface.co/HuggingFaceTB/SmolLM-135M-Instruct) | MediaPipe `.task` | **100% Public (No token needed)** |
+| **Qwen 2.5 1.5B Instruct** | Alibaba / Qwen | 1.5B | ~1.86 GB | 2048 MB | [Apache-2.0](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct) | MediaPipe `.task` | **100% Public (No token needed)** |
+| **Gemma 3 1B Instruct** | Google DeepMind | 1B | ~840 MB | 2048 MB | [Gemma Terms](https://ai.google.dev/gemma/terms) | MediaPipe `.bin` | Gated (Requires HF Token) |
+| **Gemma 2B Instruct** | Google DeepMind | 2B | ~1.35 GB | 3072 MB | [Gemma Terms](https://ai.google.dev/gemma/terms) | MediaPipe `.bin` | Gated (Requires HF Token) |
 
 *Note: The Apache-2.0 license for the Pico AI application source code covers the software itself; individual model weights are distributed under their respective creator licenses.*
+
+### 🛡️ Resolving HTTP 403 / 401 Download Errors
+If a model download fails with **HTTP 403 Forbidden** or **HTTP 401 Unauthorized**:
+1. **Un-gated Models (SmolLM & Qwen):** Download immediately with zero credentials required. The built-in downloader now passes standard mobile browser headers to avoid CloudFront CDN blocks.
+2. **Gated Models (Google Gemma):** Google requires users to accept the Gemma license on Hugging Face before downloading weights:
+   - Accept the license at [huggingface.co/google/gemma-3-1b-it-litert](https://huggingface.co/google/gemma-3-1b-it-litert).
+   - Generate a free Read access token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens).
+   - In Pico AI, go to **Settings > Hugging Face Access Token** and paste your token (`hf_...`).
+   - Re-try the download; authentication will succeed automatically!
+
+---
+
+## 🔄 Weekly Automated App Updates
+
+Pico AI includes automated weekly CI/CD publishing via GitHub Actions:
+- **Schedule:** Every Sunday at 00:00 UTC (`.github/workflows/weekly-release.yml`).
+- **In-App Checker:** Tap **Settings > Check Updates** inside the app to query for new weekly releases and download latest APKs directly.
+- **Manual Trigger:** Run the workflow at any time from GitHub Actions via `workflow_dispatch`.
 
 ---
 
@@ -129,11 +147,27 @@ The Gradle release configuration currently uses the key alias `upload`. Keep the
 
 To encode a keystore locally, use `base64 -w 0 my-upload-key.jks` on Linux, then save the output as the `KEYSTORE_BASE64` secret. On systems where `-w 0` is unsupported, use the equivalent command for a single-line Base64 value.
 
-## 🚀 GitHub Actions CI / CD
+## 🚀 GitHub Actions CI / CD & Publishing Releases
 
 The repository includes pre-configured continuous integration workflows in `.github/workflows/`:
-- **`android.yml`**: Runs on pushes and pull requests to verify tests, build the debug APK, and publish the APK artifact.
-- **`release.yml`**: Triggered on tags (`v*.*.*`), compiles the release APK, calculates its SHA-256 checksum, and drafts a GitHub Release.
+- **`android.yml`**: Runs on pushes and pull requests to run unit and Robolectric tests, assemble the debug APK, and publish the APK artifact.
+- **`release.yml`**: Triggers on version tags (`v*.*.*`) or manual dispatch. Configures the release keystore, signs the release APK, computes its SHA-256 checksum, and creates a GitHub Release with `pico-ai-release.apk`.
+- **`weekly-release.yml`**: Runs automatically every Sunday at 00:00 UTC (and on manual dispatch) to build, test, sign, and publish pre-release weekly updates with date-based tagging (`v0.1.0-weekly-YYYYMMDD`).
+
+### How to Publish a Release
+
+#### Method 1: Push a Version Tag (CLI)
+```bash
+git tag -a v0.1.0 -m "Pico AI v0.1.0"
+git push origin v0.1.0
+```
+
+#### Method 2: GitHub Web Actions (No terminal needed)
+1. Navigate to your repository on GitHub.
+2. Go to the **Actions** tab.
+3. Select **Release Build** from the left workflow menu.
+4. Click **Run workflow**, enter the version tag (e.g. `v0.1.0`), and click the green **Run workflow** button.
+5. Once complete, your signed APK and checksum will be automatically attached to a new GitHub Release.
 
 ---
 

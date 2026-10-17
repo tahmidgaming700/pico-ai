@@ -22,7 +22,8 @@ data class ModelInfo(
     val isDownloaded: Boolean = false,
     val localFileSizeBytes: Long = 0L,
     val localPath: String? = null,
-    val isVerified: Boolean = false
+    val isVerified: Boolean = false,
+    val isGated: Boolean = false
 ) {
     val formattedSize: String
         get() {

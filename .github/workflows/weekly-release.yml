@@ -1,0 +1,120 @@
+name: Weekly App Release
+
+on:
+  schedule:
+    # Run every Sunday at 00:00 UTC
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+    inputs:
+      custom_tag:
+        description: 'Optional Custom Version Tag (e.g. v0.1.0-weekly-20261018)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  weekly-release:
+    name: Build & Publish Weekly Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Determine Weekly Version Tag
+        id: versioning
+        run: |
+          if [ -n "${{ github.event.inputs.custom_tag }}" ]; then
+            TAG="${{ github.event.inputs.custom_tag }}"
+          else
+            DATE_TAG=$(date +'%Y%m%d')
+            TAG="v0.1.0-weekly-${DATE_TAG}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          accept-android-sdk-licenses: true
+          packages: 'platforms;android-36 build-tools;36.0.0 platform-tools'
+
+      - name: Grant Execute Permission to Gradlew
+        run: chmod +x gradlew
+
+      - name: Configure release signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$STORE_PASSWORD" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Release signing secrets are missing. Configure KEYSTORE_BASE64, STORE_PASSWORD, and KEY_PASSWORD in repository Actions secrets."
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$GITHUB_WORKSPACE/my-upload-key.jks"
+          test -s "$GITHUB_WORKSPACE/my-upload-key.jks"
+
+      - name: Run Unit & Robolectric Tests
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew testDebugUnitTest --no-daemon
+
+      - name: Build Signed Release APK
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Locate & Compute SHA-256 Checksum
+        id: checksum
+        run: |
+          APK_FILE=$(find app/build/outputs/apk/release/ -name "*.apk" | head -n 1)
+          if [ -z "$APK_FILE" ]; then
+            echo "ERROR: Release APK not found!"
+            exit 1
+          fi
+          echo "Found APK: $APK_FILE"
+          cp "$APK_FILE" pico-ai-release.apk
+          SHA256=$(sha256sum pico-ai-release.apk | awk '{print $1}')
+          echo "SHA256: $SHA256"
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+
+      - name: Publish Weekly GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.versioning.outputs.tag }}
+          name: Pico AI Weekly Update (${{ steps.versioning.outputs.date }})
+          draft: false
+          prerelease: true
+          files: |
+            pico-ai-release.apk
+          body: |
+            ## Pico AI Weekly Release (${{ steps.versioning.outputs.date }})
+            
+            Automated weekly build featuring the latest on-device model optimizations, bug fixes, and performance updates.
+            
+            ### Included Features
+            - **Anti-403 Download Fix**: CloudFront/CDN header authentication and optional Hugging Face Access Token support for gated models.
+            - **Expanded Model Catalogue**: Working un-gated downloads for SmolLM 135M and Qwen 2.5 1.5B `.task` bundles.
+            - **On-Device Local Inference**: 100% private, zero API keys, and offline conversational intelligence.
+            - **In-App Weekly Updates**: Check for updates directly inside the application settings.
+            
+            ### Verification
+            - **File**: `pico-ai-release.apk`
+            - **SHA-256**: `${{ steps.checksum.outputs.sha256 }}`

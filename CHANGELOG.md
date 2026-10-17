@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 403 Download Fix & Weekly Releases
+
+### Added
+- **Anti-403 Download Engine Fix**:
+  - Configured standard mobile browser User-Agent (`Mozilla/5.0 ... Chrome/120.0.0.0 PicoAI/0.1.0`) on OkHttpClient to prevent AWS CloudFront / CDN 403 Forbidden blocks.
+  - Added user-configurable **Hugging Face Access Token** in Settings to authorize downloads for gated model repositories (e.g. Google Gemma 1B / 2B) after accepting license terms on Hugging Face.
+  - Added smart 401/403 HTTP error diagnostics to guide users with specific license and token instructions instead of generic failures.
+- **Updated Model Catalogue**:
+  - Enabled direct, 100% public and un-gated downloads for **SmolLM 135M Instruct** (`.task`, ~166 MB) and **Qwen 2.5 1.5B Instruct** (`.task`, ~1.86 GB).
+  - Added "Gated" badges on Google Gemma models with clear token requirements.
+- **Weekly Automated App Updates**:
+  - Added `.github/workflows/weekly-release.yml` with cron schedule (`0 0 * * 0`) and manual dispatch to build, test, sign, and publish weekly releases automatically.
+  - Added in-app update checker in Settings that queries the GitHub Releases API and allows downloading new APK versions with 1-tap.
+
 ## [0.1.0] - Initial Public Release
 
 ### Added

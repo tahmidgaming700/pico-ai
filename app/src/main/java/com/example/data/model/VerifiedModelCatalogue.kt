@@ -6,16 +6,32 @@ object VerifiedModelCatalogue {
         ModelInfo(
             id = "smollm-135m-instruct",
             name = "SmolLM 135M Instruct",
-            publisher = "Hugging Face TB",
+            publisher = "Hugging Face TB (LiteRT)",
             format = ModelFormat.MEDIA_PIPE_TASK,
             licenseName = "Apache-2.0",
             licenseUrl = "https://huggingface.co/HuggingFaceTB/SmolLM-135M-Instruct",
-            approxSizeBytes = 98_000_000L, // ~98 MB
+            approxSizeBytes = 166_754_726L, // ~166 MB
             minRamMb = 1024,
             parameterCount = "135M",
-            description = "Ultra-compact mobile-friendly language model. Ideal for low-RAM devices (such as Kirin 710 with 3GB RAM) and instantaneous response testing without large downloads.",
-            downloadUrl = "https://huggingface.co/litert-community/SmolLM-135M-Instruct-TFLite/resolve/main/smollm-135m-instruct.bin",
-            expectedSha256 = null
+            description = "100% Public & Un-gated. Ultra-compact mobile-optimized language model bundle (.task). Ideal for Huawei Y9 2019 / Kirin 710 devices with 3GB RAM and instant offline responses.",
+            downloadUrl = "https://huggingface.co/litert-community/SmolLM-135M-Instruct/resolve/main/SmolLM-135M-Instruct_multi-prefill-seq_q8_ekv1280.task",
+            expectedSha256 = null,
+            isGated = false
+        ),
+        ModelInfo(
+            id = "qwen-2.5-1.5b-instruct",
+            name = "Qwen 2.5 1.5B Instruct",
+            publisher = "Qwen Team (LiteRT Community)",
+            format = ModelFormat.MEDIA_PIPE_TASK,
+            licenseName = "Apache-2.0",
+            licenseUrl = "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct",
+            approxSizeBytes = 1_860_000_000L, // ~1.86 GB
+            minRamMb = 2048,
+            parameterCount = "1.5B",
+            description = "100% Public & Un-gated. High-performance multi-turn instruction model packaged in official MediaPipe .task bundle. Strong code and multilingual reasoning.",
+            downloadUrl = "https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task",
+            expectedSha256 = null,
+            isGated = false
         ),
         ModelInfo(
             id = "gemma-3-1b-it",
@@ -27,9 +43,10 @@ object VerifiedModelCatalogue {
             approxSizeBytes = 840_000_000L, // ~840 MB
             minRamMb = 2048,
             parameterCount = "1B",
-            description = "Google's state-of-the-art 1B instruction-tuned model. Excellent reasoning, coding, and multilingual knowledge in a compact mobile package.",
+            description = "Google's 1B mobile instruction model. Gated model: requires accepting terms on HuggingFace and adding your free Hugging Face token in Settings.",
             downloadUrl = "https://huggingface.co/google/gemma-3-1b-it-litert/resolve/main/gemma-3-1b-it-cpu-int4.bin",
-            expectedSha256 = null
+            expectedSha256 = null,
+            isGated = true
         ),
         ModelInfo(
             id = "gemma-2b-it",
@@ -41,23 +58,10 @@ object VerifiedModelCatalogue {
             approxSizeBytes = 1_350_000_000L, // ~1.35 GB
             minRamMb = 3072,
             parameterCount = "2B",
-            description = "High quality 2B instruction-tuned model trained on Google's Gemini architecture. Requires ~3GB RAM for smooth execution.",
+            description = "Google's 2B instruction model for devices with 3GB+ RAM. Gated model: requires Hugging Face access token with accepted Gemma terms in Settings.",
             downloadUrl = "https://huggingface.co/google/gemma-2b-it-tflite/resolve/main/gemma-2b-it-cpu-int4.bin",
-            expectedSha256 = null
-        ),
-        ModelInfo(
-            id = "phi-2-instruct",
-            name = "Phi-2 2.7B Instruct",
-            publisher = "Microsoft",
-            format = ModelFormat.MEDIA_PIPE_TASK,
-            licenseName = "MIT License",
-            licenseUrl = "https://huggingface.co/microsoft/phi-2",
-            approxSizeBytes = 1_650_000_000L, // ~1.65 GB
-            minRamMb = 4096,
-            parameterCount = "2.7B",
-            description = "Microsoft's 2.7B model showcasing remarkable common-sense reasoning and textbook-quality generation.",
-            downloadUrl = "https://huggingface.co/litert-community/phi-2-tflite/resolve/main/phi-2-cpu-int4.bin",
-            expectedSha256 = null
+            expectedSha256 = null,
+            isGated = true
         )
     )
 

@@ -20,8 +20,10 @@ import com.example.engine.EngineStatus
 import com.example.engine.LocalInferenceEngine
 import com.example.engine.MediaPipeInferenceEngine
 import com.example.engine.PromptFormatter
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -45,6 +47,15 @@ data class StorageReport(
     val modelsSizeBytes: Long,
     val totalRamMb: Long,
     val availableRamMb: Long
+)
+
+data class AppUpdateInfo(
+    val hasUpdate: Boolean,
+    val currentVersion: String = "0.1.0",
+    val latestVersion: String,
+    val releaseTitle: String,
+    val releaseNotes: String,
+    val downloadUrl: String?
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -95,6 +106,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         AppThemeMode.valueOf(prefs.getString("theme_mode", AppThemeMode.DARK.name) ?: AppThemeMode.DARK.name)
     )
     val themeMode: StateFlow<AppThemeMode> = _themeMode.asStateFlow()
+
+    private val _hfToken = MutableStateFlow(prefs.getString("hf_token", "") ?: "")
+    val hfToken: StateFlow<String> = _hfToken.asStateFlow()
+
+    private val _updateInfo = MutableStateFlow<AppUpdateInfo?>(null)
+    val updateInfo: StateFlow<AppUpdateInfo?> = _updateInfo.asStateFlow()
+
+    private val _isCheckingUpdate = MutableStateFlow(false)
+    val isCheckingUpdate: StateFlow<Boolean> = _isCheckingUpdate.asStateFlow()
 
     // Timers & UI feedback
     private val _generationElapsedSec = MutableStateFlow(0)
@@ -389,6 +409,86 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setThemeMode(mode: AppThemeMode) {
         _themeMode.value = mode
         prefs.edit().putString("theme_mode", mode.name).apply()
+    }
+
+    fun saveHfToken(token: String) {
+        val clean = token.trim()
+        _hfToken.value = clean
+        prefs.edit().putString("hf_token", clean).apply()
+        showNotice(if (clean.isBlank()) "Hugging Face token cleared." else "Hugging Face token saved.")
+    }
+
+    fun dismissUpdateDialog() {
+        _updateInfo.value = null
+    }
+
+    fun checkForAppUpdate() {
+        viewModelScope.launch {
+            _isCheckingUpdate.value = true
+            withContext(Dispatchers.IO) {
+                try {
+                    val client = okhttp3.OkHttpClient.Builder()
+                        .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                        .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                        .build()
+
+                    val request = okhttp3.Request.Builder()
+                        .url("https://api.github.com/repos/tahmidgaming700/pico-ai/releases")
+                        .addHeader("User-Agent", "PicoAI-Android/0.1.0")
+                        .addHeader("Accept", "application/vnd.github.v3+json")
+                        .build()
+
+                    val response = client.newCall(request).execute()
+                    if (response.isSuccessful) {
+                        val body = response.body?.string() ?: ""
+                        val releasesArray = org.json.JSONArray(body)
+                        if (releasesArray.length() > 0) {
+                            val latestObj = releasesArray.getJSONObject(0)
+                            val tagName = latestObj.optString("tag_name", "").removePrefix("v")
+                            val releaseName = latestObj.optString("name", "Pico AI Update")
+                            val releaseBody = latestObj.optString("body", "Weekly improvements and model performance updates.")
+
+                            // Locate APK download URL
+                            var downloadUrl: String? = null
+                            val assets = latestObj.optJSONArray("assets")
+                            if (assets != null) {
+                                for (i in 0 until assets.length()) {
+                                    val asset = assets.getJSONObject(i)
+                                    val name = asset.optString("name", "")
+                                    if (name.endsWith(".apk")) {
+                                        downloadUrl = asset.optString("browser_download_url", null)
+                                        break
+                                    }
+                                }
+                            }
+                            if (downloadUrl == null) {
+                                downloadUrl = latestObj.optString("html_url", null)
+                            }
+
+                            val currentVersion = "0.1.0"
+                            val hasUpdate = tagName.isNotBlank() && (tagName != currentVersion && !tagName.startsWith("0.1.0"))
+
+                            _updateInfo.value = AppUpdateInfo(
+                                hasUpdate = hasUpdate,
+                                currentVersion = currentVersion,
+                                latestVersion = tagName.ifBlank { "0.1.0" },
+                                releaseTitle = releaseName,
+                                releaseNotes = releaseBody,
+                                downloadUrl = downloadUrl
+                            )
+                        } else {
+                            showNotice("You are running the latest version of Pico AI (v0.1.0).")
+                        }
+                    } else {
+                        showNotice("No remote updates found or rate-limited (HTTP ${response.code}).")
+                    }
+                } catch (e: Exception) {
+                    showNotice("Could not check for updates: ${e.localizedMessage ?: "Offline"}")
+                } finally {
+                    _isCheckingUpdate.value = false
+                }
+            }
+        }
     }
 
     fun getStorageReport(): StorageReport {

@@ -5,7 +5,6 @@ import com.example.data.model.DownloadState
 import com.example.data.model.ModelInfo
 import com.example.data.model.ModelValidator
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
@@ -18,9 +17,13 @@ import java.util.concurrent.TimeUnit
 
 class ModelDownloadManager(private val context: Context) {
 
+    private val prefs = context.getSharedPreferences("pico_ai_settings", Context.MODE_PRIVATE)
+
     private val client = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
+        .connectTimeout(45, TimeUnit.SECONDS)
+        .readTimeout(120, TimeUnit.SECONDS)
+        .followRedirects(true)
+        .followSslRedirects(true)
         .build()
 
     private val _downloadState = MutableStateFlow<Map<String, DownloadState>>(emptyMap())
@@ -58,13 +61,45 @@ class ModelDownloadManager(private val context: Context) {
         updateState(model.id, DownloadState.Downloading(0, 0, model.approxSizeBytes))
 
         try {
-            val request = Request.Builder().url(url).build()
+            val requestBuilder = Request.Builder()
+                .url(url)
+                // Set standard browser/mobile User-Agent to prevent CloudFront/Cloudflare HTTP 403 Forbidden
+                .addHeader(
+                    "User-Agent",
+                    "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 PicoAI/0.1.0"
+                )
+                .addHeader("Accept", "*/*")
+                .addHeader("Accept-Encoding", "identity")
+
+            // Attach user's Hugging Face token if present and downloading from Hugging Face
+            val hfToken = prefs.getString("hf_token", "")?.trim() ?: ""
+            if (hfToken.isNotBlank() && url.contains("huggingface.co")) {
+                requestBuilder.addHeader("Authorization", "Bearer $hfToken")
+            }
+
+            val request = requestBuilder.build()
             val call = client.newCall(request)
             activeCalls[model.id] = call
 
             val response = call.execute()
             if (!response.isSuccessful) {
-                val error = "Server returned error: HTTP ${response.code} ${response.message}"
+                val hfErrorCode = response.header("x-error-code") ?: ""
+                val hfErrorMessage = response.header("x-error-message") ?: ""
+
+                val error = when {
+                    response.code == 401 || response.code == 403 -> {
+                        if (hfErrorCode.contains("Gated", ignoreCase = true) || hfErrorMessage.contains("restricted", ignoreCase = true)) {
+                            "Access Restricted (HTTP ${response.code}): This model is gated on Hugging Face. Accept the license on huggingface.co and save your free Hugging Face token in Settings."
+                        } else if (hfToken.isBlank()) {
+                            "Access Forbidden (HTTP ${response.code}): Hugging Face requires an access token for this model. Please add your token in Settings > Hugging Face Access Token."
+                        } else {
+                            "Access Forbidden (HTTP ${response.code}): Token not authorized for this repository. Verify that your Hugging Face account has accepted the model license."
+                        }
+                    }
+                    response.code == 404 -> "Model file not found on remote server (HTTP 404)."
+                    else -> "Download failed with HTTP ${response.code}: ${response.message}"
+                }
+
                 updateState(model.id, DownloadState.Failed(error))
                 tempFile.delete()
                 return@withContext Result.failure(IllegalStateException(error))
@@ -138,7 +173,6 @@ class ModelDownloadManager(private val context: Context) {
             }
             val renamed = tempFile.renameTo(finalFile)
             if (!renamed) {
-                // Fallback copy if cross-filesystem rename fails
                 tempFile.copyTo(finalFile, overwrite = true)
                 tempFile.delete()
             }

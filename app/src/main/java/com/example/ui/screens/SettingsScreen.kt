@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -26,13 +27,16 @@ import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -71,10 +75,12 @@ import com.example.ui.theme.PicoNavyBorder
 import com.example.ui.theme.PicoNavyCard
 import com.example.ui.theme.PicoNavyDarkest
 import com.example.ui.theme.PicoNavySurface
+import com.example.ui.theme.PicoSuccess
 import com.example.ui.theme.PicoTextMuted
 import com.example.ui.theme.PicoTextPrimary
 import com.example.ui.theme.PicoTextSecondary
 import com.example.ui.theme.PicoViolet
+import com.example.ui.theme.PicoWarning
 import kotlin.math.roundToInt
 
 @Composable
@@ -86,11 +92,15 @@ fun SettingsScreen(
     val context = LocalContext.current
     val currentSettings by viewModel.engineSettings.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
+    val savedHfToken by viewModel.hfToken.collectAsState()
+    val isCheckingUpdate by viewModel.isCheckingUpdate.collectAsState()
+    val updateInfo by viewModel.updateInfo.collectAsState()
 
     var temperature by remember(currentSettings) { mutableFloatStateOf(currentSettings.temperature) }
     var topK by remember(currentSettings) { mutableIntStateOf(currentSettings.topK) }
     var maxTokens by remember(currentSettings) { mutableIntStateOf(currentSettings.maxTokens) }
     var systemPrompt by remember(currentSettings) { mutableStateOf(currentSettings.systemPrompt) }
+    var hfTokenInput by remember(savedHfToken) { mutableStateOf(savedHfToken) }
 
     var showClearHistoryConfirm by remember { mutableStateOf(false) }
     var showClearModelsConfirm by remember { mutableStateOf(false) }
@@ -112,7 +122,7 @@ fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Settings & Diagnostics",
+                text = "Settings & Updates",
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f)
@@ -146,6 +156,124 @@ fun SettingsScreen(
                 .verticalScroll(scrollState)
                 .padding(16.dp)
         ) {
+            // Weekly App Updates Section
+            SectionHeader(title = "WEEKLY APP UPDATES", icon = Icons.Default.SystemUpdate)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(PicoNavySurface)
+                    .border(1.dp, PicoNavyBorder, RoundedCornerShape(12.dp))
+                    .padding(16.dp)
+            ) {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Pico AI v0.1.0", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = PicoTextPrimary)
+                            Text("Automatic weekly CI/CD updates from GitHub", style = MaterialTheme.typography.bodySmall, color = PicoTextSecondary)
+                        }
+
+                        if (isCheckingUpdate) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp, color = PicoCyan)
+                        } else {
+                            Button(
+                                onClick = { viewModel.checkForAppUpdate() },
+                                colors = ButtonDefaults.buttonColors(containerColor = PicoCyan, contentColor = PicoNavyDarkest),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.testTag("check_updates_button")
+                            ) {
+                                Text("Check Updates")
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "New releases are packaged and published every week with model optimizations, engine updates, and stability fixes.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = PicoTextMuted,
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Hugging Face Authentication Section (Fixes 403 Errors)
+            SectionHeader(title = "HUGGING FACE TOKEN (FIXES 403/401 ERRORS)", icon = Icons.Default.Key)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(PicoNavySurface)
+                    .border(1.dp, PicoNavyBorder, RoundedCornerShape(12.dp))
+                    .padding(16.dp)
+            ) {
+                Column {
+                    Text(
+                        text = "Hugging Face Access Token (Optional)",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = PicoTextPrimary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Gated models (such as Google Gemma) require accepting their license terms on Hugging Face. Adding your free Read token here authorizes direct in-app downloads without 403 Forbidden errors.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PicoTextSecondary,
+                        lineHeight = 18.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = hfTokenInput,
+                        onValueChange = { hfTokenInput = it },
+                        placeholder = { Text("hf_xxxxxxxxxxxxxxxxxxxx", color = PicoTextMuted) },
+                        modifier = Modifier.fillMaxWidth().testTag("hf_token_field"),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = PicoCyan,
+                            unfocusedBorderColor = PicoNavyBorder,
+                            focusedTextColor = PicoTextPrimary,
+                            unfocusedTextColor = PicoTextPrimary,
+                            focusedContainerColor = PicoNavyDarkest,
+                            unfocusedContainerColor = PicoNavyDarkest
+                        ),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row {
+                        Button(
+                            onClick = {
+                                viewModel.saveHfToken(hfTokenInput)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = PicoCyan, contentColor = PicoNavyDarkest),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.testTag("save_hf_token_button")
+                        ) {
+                            Text("Save Token")
+                        }
+
+                        if (hfTokenInput.isNotBlank()) {
+                            Spacer(modifier = Modifier.width(10.dp))
+                            OutlinedButton(
+                                onClick = {
+                                    hfTokenInput = ""
+                                    viewModel.saveHfToken("")
+                                },
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Clear")
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
             // Theme Section
             SectionHeader(title = "APPEARANCE", icon = Icons.Default.ColorLens)
             Box(
@@ -375,7 +503,7 @@ fun SettingsScreen(
                     OutlinedButton(
                         onClick = { showClearHistoryConfirm = true },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = PicoError),
-                        border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(PicoError)),
+                        border = ButtonDefaults.outlinedButtonBorder(enabled = true),
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -387,7 +515,7 @@ fun SettingsScreen(
                     OutlinedButton(
                         onClick = { showClearModelsConfirm = true },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = PicoError),
-                        border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(PicoError)),
+                        border = ButtonDefaults.outlinedButtonBorder(enabled = true),
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -420,6 +548,73 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(30.dp))
         }
+    }
+
+    // App Update Dialog
+    updateInfo?.let { info ->
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissUpdateDialog() },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = PicoCyan)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (info.hasUpdate) "New Update Available!" else "Up to Date",
+                        color = PicoTextPrimary
+                    )
+                }
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Current: v${info.currentVersion} • Latest: v${info.latestVersion}",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = PicoCyan
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = info.releaseTitle,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = PicoTextPrimary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = info.releaseNotes,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PicoTextSecondary
+                    )
+                }
+            },
+            confirmButton = {
+                if (info.hasUpdate && info.downloadUrl != null) {
+                    Button(
+                        onClick = {
+                            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(info.downloadUrl))
+                            context.startActivity(browserIntent)
+                            viewModel.dismissUpdateDialog()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = PicoCyan, contentColor = PicoNavyDarkest)
+                    ) {
+                        Text("Download APK")
+                    }
+                } else {
+                    Button(
+                        onClick = { viewModel.dismissUpdateDialog() },
+                        colors = ButtonDefaults.buttonColors(containerColor = PicoCyan, contentColor = PicoNavyDarkest)
+                    ) {
+                        Text("OK")
+                    }
+                }
+            },
+            dismissButton = {
+                if (info.hasUpdate) {
+                    TextButton(onClick = { viewModel.dismissUpdateDialog() }) {
+                        Text("Later", color = PicoTextSecondary)
+                    }
+                }
+            },
+            containerColor = PicoNavyCard
+        )
     }
 
     // Clear History Dialog

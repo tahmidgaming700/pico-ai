@@ -547,6 +547,28 @@ private fun CatalogueModelsList(
             .fillMaxSize()
             .padding(14.dp)
     ) {
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 10.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF0F172A))
+                    .border(1.dp, PicoNavyBorder, RoundedCornerShape(8.dp))
+                    .padding(12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = PicoCyan, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "SmolLM 135M & Qwen 1.5B download directly without authentication. Gated models (Gemma) require a free Hugging Face token in Settings.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PicoTextSecondary
+                    )
+                }
+            }
+        }
+
         items(catalogue, key = { it.id }) { model ->
             val isInstalled = installedModels.any { it.id == model.id }
             val downloadState = downloadStates[model.id] ?: DownloadState.Idle
@@ -575,18 +597,38 @@ private fun CatalogueModelsList(
                             )
                         }
 
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(PicoNavyCard)
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = model.licenseName,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = PicoTextSecondary
-                            )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (model.isGated) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(Color(0x33F59E0B))
+                                        .border(1.dp, PicoWarning, RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "Gated",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = PicoWarning
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(6.dp))
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(PicoNavyCard)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = model.licenseName,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = PicoTextSecondary
+                                )
+                            }
                         }
                     }
 
